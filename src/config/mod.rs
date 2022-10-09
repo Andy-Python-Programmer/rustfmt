@@ -109,6 +109,7 @@ create_config! {
         "Where to put a binary operator when a binary expression goes multiline";
 
     // Misc.
+    hex_for_int: bool, true, false, "Use hexadecimal for integer literals";
     remove_nested_parens: bool, true, true, "Remove nested parens";
     combine_control_expr: bool, true, false, "Combine control expressions with function calls";
     short_array_element_width_threshold: usize, 10, true,

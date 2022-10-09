@@ -1189,7 +1189,40 @@ pub(crate) fn rewrite_literal(
 ) -> Option<String> {
     match l.kind {
         ast::LitKind::Str(_, ast::StrStyle::Cooked) => rewrite_string_lit(context, l.span, shape),
-        ast::LitKind::Int(..) => rewrite_int_lit(context, l, shape),
+        ast::LitKind::Int(v, _ /* integer literal type */) => {
+            if context.config.hex_for_int() {
+                let hex_str = format!("{:#x}", v);
+                return wrap_str(hex_str, context.config.max_width(), shape);
+            }
+
+            let span = l.span;
+            let symbol = l.token.symbol.as_str();
+
+            if let Some(symbol_stripped) = symbol.strip_prefix("0x") {
+                let hex_lit = match context.config.hex_literal_case() {
+                    HexLiteralCase::Preserve => None,
+                    HexLiteralCase::Upper => Some(symbol_stripped.to_ascii_uppercase()),
+                    HexLiteralCase::Lower => Some(symbol_stripped.to_ascii_lowercase()),
+                };
+                if let Some(hex_lit) = hex_lit {
+                    return wrap_str(
+                        format!(
+                            "0x{}{}",
+                            hex_lit,
+                            l.token.suffix.map_or(String::new(), |s| s.to_string())
+                        ),
+                        context.config.max_width(),
+                        shape,
+                    );
+                }
+            }
+
+            wrap_str(
+                context.snippet(span).to_owned(),
+                context.config.max_width(),
+                shape,
+            )
+        }
         _ => wrap_str(
             context.snippet(l.span).to_owned(),
             context.config.max_width(),
@@ -1221,36 +1254,6 @@ fn rewrite_string_lit(context: &RewriteContext<'_>, span: Span, shape: Shape) ->
         str_lit,
         &StringFormat::new(shape.visual_indent(0), context.config),
         shape.width.saturating_sub(2),
-    )
-}
-
-fn rewrite_int_lit(context: &RewriteContext<'_>, lit: &ast::Lit, shape: Shape) -> Option<String> {
-    let span = lit.span;
-    let symbol = lit.token.symbol.as_str();
-
-    if let Some(symbol_stripped) = symbol.strip_prefix("0x") {
-        let hex_lit = match context.config.hex_literal_case() {
-            HexLiteralCase::Preserve => None,
-            HexLiteralCase::Upper => Some(symbol_stripped.to_ascii_uppercase()),
-            HexLiteralCase::Lower => Some(symbol_stripped.to_ascii_lowercase()),
-        };
-        if let Some(hex_lit) = hex_lit {
-            return wrap_str(
-                format!(
-                    "0x{}{}",
-                    hex_lit,
-                    lit.token.suffix.map_or(String::new(), |s| s.to_string())
-                ),
-                context.config.max_width(),
-                shape,
-            );
-        }
-    }
-
-    wrap_str(
-        context.snippet(span).to_owned(),
-        context.config.max_width(),
-        shape,
     )
 }
 
